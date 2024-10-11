@@ -1,148 +1,116 @@
-# cassandracrud
+# CassandraCRUD Library
 
-cassandracrud is an advanced Python ORM (Object-Relational Mapping) library for Apache Cassandra. It simplifies CRUD (Create, Read, Update, Delete) operations with automatic schema discovery, dynamic model creation, and pandas DataFrame integration.
+CassandraCRUD is a Python library that provides a simple and flexible interface for interacting with Apache Cassandra databases. It wraps the DataStax Cassandra driver and offers additional utility functions for common database operations.
 
 ## Features
 
-- Automatic database schema discovery and dynamic model creation
-- Data processing with pandas DataFrame integration
-- Simplified CRUD operations
-- Support for bulk data insertion
-- Custom query execution capability
-- Flexible query conditions (e.g., IN queries)
-- Connection pooling and automatic reconnection
-- Secure connections with SSL support
+- Easy connection management
+- Flexible query execution (synchronous and asynchronous)
+- Batch operations support
+- Customizable consistency levels
+- Built-in CRUD operations
+- Table management utilities
+- Configurable through environment variables or direct parameters
 
 ## Installation
+
+To install CassandraCRUD, you can use pip:
 
 ```
 pip install cassandracrud
 ```
 
-## Quick Start
+## Usage
+
+Here's a basic example of how to use CassandraCRUD:
 
 ```python
 from cassandracrud import CassandraCRUD
-import pandas as pd
 
-# Initialize the connection
+# Initialize the CassandraCRUD instance
 crud = CassandraCRUD(
-    contact_points=['localhost'],
-    keyspace='my_keyspace',
-    username='user',
-    password='password'
+    contact_points=["localhost"],
+    keyspace="my_keyspace",
+    username="user",
+    password="pass"
 )
 
-# Create data
-user_data = pd.DataFrame([
-    {'id': 1, 'name': 'John Doe', 'email': 'john@example.com'},
-    {'id': 2, 'name': 'Jane Doe', 'email': 'jane@example.com'}
-])
-crud.create('users', user_data)
+# Connect to the database
+crud.connect()
 
-# Read data
-users = crud.read('users', conditions={'id': [1, 2]})
-print(users)
+# Execute a query
+result = crud.execute("SELECT * FROM my_table")
 
-# Update data
-crud.update('users', {'email': 'johndoe@example.com'}, {'id': 1})
-
-# Delete data
-crud.delete('users', {'id': 2})
-
-# Execute a raw query
-result = crud.execute_raw("SELECT * FROM users WHERE id = %s", [1])
-print(result)
+# Create a new record
+crud.create("my_table", {"id": 1, "name": "John Doe"})
 
 # Close the connection
 crud.close()
 ```
 
+## Configuration
+
+You can configure CassandraCRUD either by passing parameters to the constructor or by setting environment variables:
+
+- `CASSANDRA_PROD_CONTACT_POINTS`: Comma-separated list of contact points
+- `CASSANDRA_PROD_KEYSPACE`: Keyspace name
+- `CASSANDRA_PROD_USERNAME`: Username for authentication
+- `CASSANDRA_PROD_PASSWORD`: Password for authentication
+
+If both environment variables and constructor parameters are provided, the constructor parameters take precedence.
+
+## Main Methods
+
+- `connect()`: Establishes a connection to the Cassandra cluster
+- `execute(query, params=None)`: Executes a CQL query
+- `execute_async(query, params=None)`: Executes a CQL query asynchronously
+- `prepare(query)`: Prepares a CQL statement
+- `execute_batch(statements)`: Executes a batch of CQL statements
+- `create(table, data)`: Inserts a new record into a table
+- `read(table, conditions=None)`: Retrieves records from a table
+- `update(table, data, conditions)`: Updates records in a table
+- `delete(table, conditions)`: Deletes records from a table
+
+## Utility Methods
+
+- `table_exists(table_name)`: Checks if a table exists
+- `create_table(table_name, column_definitions)`: Creates a new table
+- `drop_table(table_name)`: Drops a table
+- `get_table_schema(table_name)`: Retrieves the schema of a table
+- `get_metrics()`: Retrieves cluster metrics
+- `set_consistency_level(consistency_level)`: Sets the consistency level for queries
+
 ## Advanced Usage
 
-### Automatic Model Creation
-
-CassandraCRUD automatically discovers the database schema and dynamically creates Model classes for each table. You can access these models as follows:
+### Asynchronous Queries
 
 ```python
-UserModel = crud.get_model('users')
-print(UserModel._columns)
-print(UserModel._primary_key)
+future = crud.execute_async("SELECT * FROM my_table")
+# Do other work...
+result = future.result()
 ```
 
-### Bulk Data Insertion
-
-You can insert bulk data using pandas DataFrames:
+### Batch Operations
 
 ```python
-bulk_data = pd.DataFrame([
-    {'id': 3, 'name': 'Alice', 'email': 'alice@example.com'},
-    {'id': 4, 'name': 'Bob', 'email': 'bob@example.com'},
-    {'id': 5, 'name': 'Charlie', 'email': 'charlie@example.com'}
-])
-crud.create('users', bulk_data)
+statements = [
+    ("INSERT INTO my_table (id, name) VALUES (%s, %s)", (1, "John")),
+    ("INSERT INTO my_table (id, name) VALUES (%s, %s)", (2, "Jane"))
+]
+crud.execute_batch(statements)
 ```
 
-### Flexible Query Conditions
-
-Supports more complex conditions like IN queries:
+### Changing Consistency Level
 
 ```python
-users = crud.read('users', conditions={'id': [1, 3, 5]})
+from cassandra import ConsistencyLevel
+crud.set_consistency_level(ConsistencyLevel.ALL)
 ```
-
-### Custom Query Execution
-
-You can execute custom CQL queries using the `execute_raw` method:
-
-```python
-result = crud.execute_raw("SELECT * FROM users WHERE name LIKE %s", ['%Doe'])
-print(result)
-```
-
-## Configuration Options
-
-The CassandraCRUD class offers various options to customize the connection and query execution behavior:
-
-- `contact_points`: List of Cassandra nodes
-- `keyspace`: Name of the keyspace to use
-- `username` and `password`: Authentication credentials
-- `pool_size`: Connection pool size
-- `consistency_level`: Consistency level
-- `retry_policy`: Retry policy
-- `load_balancing_policy`: Load balancing policy
-- `protocol_version`: Cassandra protocol version
-- `port`: Cassandra port number
-- `ssl_context`: SSL context for SSL connection
-- `compression`: Whether to use compression
-
-## Error Handling
-
-CassandraCRUD raises `CassandraORMException` for errors that may occur during operations. You can catch these errors as follows:
-
-```python
-from cassandracrud import CassandraCRUD, CassandraORMException
-
-try:
-    crud.create('non_existent_table', {'data': 'value'})
-except CassandraORMException as e:
-    print(f"An error occurred: {str(e)}")
-```
-
-## Performance Tips
-
-- Use DataFrames for bulk operations.
-- Use pagination with the `read` method for large datasets.
-- Use prepared statements for frequently used queries.
 
 ## Contributing
 
-We welcome contributions! Please make sure to run your tests before submitting a pull request.
+Contributions to CassandraCRUD are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for more information.
-
-## Contact
-
-For questions or feedback, please open an issue on GitHub or send an email to info@gencbaris.com .
+This project is licensed under the MIT License.
